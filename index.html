@@ -11,19 +11,18 @@
   <!-- UI LEFT PANEL -->
   <div id="ui">
     <button id="btnAddDrone">➕ Add Drone</button>
-    <button id="btnProperties">📌 Properties</button>
+    <!-- <button id="btnProperties">📌 Properties</button> -->
     <button id="btnSettings">⚙ Settings</button>
-    <button id="btnTimeline">⏱ Timeline</button>
+    <!-- <button id="btnTimeline">⏱ Timeline</button> -->
     <button id="btnDroneList">🛸 Drones</button>
 
-    <!-- PROPERTIES -->
-    <div id="panelProperties" class="panel">
-      <h4>Drone Properties</h4>
-      <label>Color: <input type="color" id="droneColor"></label><br><br>
-      <label>Size: <input id="droneSize" type="range" min="0.1" max="3" step="0.1"></label>
+    <!-- Drone List (LEFT SIDE) -->
+    <div id="droneListPanel">
+      <h4 style="margin: 0; padding: 5px;">Drones</h4>
+      <div id="droneList"></div>
     </div>
 
-    <!-- SETTINGS -->
+    <!-- SETTINGS PANEL -->
     <div id="panelSettings" class="panel">
       <h4>Settings</h4>
       <label>Background: <input type="color" id="bgColor"></label><br><br>
@@ -31,12 +30,14 @@
       <label>Grid Sub: <input type="color" id="gridSub"></label>
     </div>
 
-    <!-- TIMELINE -->
-    <div id="panelTimeline" class="panel">
+    <!-- TIMELINE PANEL -->
+    <!-- <div id="panelTimeline" class="panel">
       <h4>Timeline</h4>
       <button id="btnAddKey">➕ Add Key</button>
       <button id="btnPlayTimeline">▶ Play</button>
+
       <div id="keyList"></div>
+
       <div id="keyEdit" style="margin-top:10px; display:none;">
         <h4>Edit Keyframe</h4>
         <label>Time: <input id="kfTime" type="number" min="0" step="0.1"></label><br><br>
@@ -45,13 +46,85 @@
         <label>Z: <input id="kfZ" type="number" step="0.1"></label><br><br>
         <button id="btnSaveKey">💾 Save</button>
       </div>
-    </div>
+    </div> -->
   </div>
 
-  <!-- DRONE LIST PANEL (RIGHT SIDE) -->
-  <div id="droneListPanel">
-    <h4 style="margin: 0; padding: 5px;">Drones</h4>
-    <div id="droneList"></div>
+
+  <!-- RIGHT PANEL (Properties only) -->
+<div id="rightPanels">
+  <div id="panelProperties" class="panel">
+
+    <h4>Drone Properties</h4>
+
+    <div id="propContainer">
+      <!-- ======================
+          RIGHT SIDE – INFO
+      ======================= -->
+      <div class="prop-right">
+
+        <label>Color:<br>
+          <input type="color" id="droneColor">
+        </label>
+        <br><br>
+
+        <label>Size:<br>
+          <input id="droneSize" type="range" min="0.1" max="3" step="0.1">
+        </label>
+        <br><br>
+
+        <strong>Tọa độ (m)</strong><br>
+        X: <input id="droneX" type="number" step="0.01" style="width:80px"><br>
+        Y: <input id="droneY" type="number" step="0.01" style="width:80px"><br>
+        Z: <input id="droneZ" type="number" step="0.01" style="width:80px"><br><br>
+
+        <button id="btnApplyToTimeline" style="margin-top:6px;">➕ Add Key At Current Time</button>
+        <button id="btnClearOverride" style="margin-top:6px;">↺ Restore Timeline Control</button>
+
+        <button id="btnDeleteDrone"
+          style="margin-top:10px; background:#ff4444; color:white; border:none; padding:6px 10px; border-radius:4px;">
+          🗑 Delete Drone
+        </button>
+      </div>
+
+      <!-- ======================
+          LEFT SIDE – TIMELINE
+      ======================= -->
+      <div class="prop-left">
+
+        <h4>Timeline</h4>
+
+        <button id="btnAddKey">➕ Add Key</button>
+        <button id="btnPlayTimeline">▶ Play</button>
+
+        <div id="keyList"></div>
+
+        <div id="keyEdit" style="margin-top:10px; display:none;">
+          <h4>Edit Keyframe</h4>
+
+          <label>Time:<br>
+            <input id="kfTime" type="number" min="0" step="0.1">
+          </label><br><br>
+
+          <label>X:<br> <input id="kfX" type="number" step="0.1"></label><br>
+          <label>Y:<br> <input id="kfY" type="number" step="0.1"></label><br>
+          <label>Z:<br> <input id="kfZ" type="number" step="0.1"></label><br><br>
+
+          <button id="btnSaveKey">💾 Save</button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+  <!-- CONTEXT MENU -->
+  <div id="contextMenu" class="context-menu" style="display:none; position:fixed; z-index:9999;">
+    <button id="ctxAddDrone">➕ Add Drone Here</button>
+    <button id="ctxDeleteDrone">🗑 Delete Drone</button>
+    <button id="ctxProperties">📌 Properties</button>
+    
+    
   </div>
 
   <script type="module" src="/src/main.js"></script>

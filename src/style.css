@@ -20,6 +20,7 @@ body {
   width: 180px;
 }
 
+/* Sub-panels inside UI */
 .panel {
   margin-top: 10px;
   padding: 8px;
@@ -39,23 +40,20 @@ body {
 }
 
 /* ------------------------
-   DRONE LIST PANEL (RIGHT)
+   DRONE LIST (LEFT SIDE)
 ------------------------ */
 #droneListPanel {
-  position: fixed;
-  top: 10px;
-  right: 150px;
-  width: 160px;
+  width: 180px;
   background: #ffffffdd;
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #ccc;
-
-  display: none; /* Mặc định ẩn */
+  margin-top: 10px;
+  display: none; /* toggle by button */
 }
 
 #droneList {
-  max-height: 300px; /* Scroll sau 10 drone */
+  max-height: 300px; /* scroll khi nhiều drone */
   overflow-y: auto;
 }
 
@@ -71,4 +69,121 @@ body {
 .drone-item.active {
   background: #ffeb3b;
   font-weight: bold;
+}
+
+/* ------------------------
+   RIGHT SIDE PANELS
+------------------------ */
+#rightPanels {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#panelProperties {
+  width: 220px;
+  background: #ffffffdd;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  display: none;
+}
+
+/* ------------------------
+   TIMELINE KEYLIST SCROLL
+------------------------ */
+#keyList {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* ------------------------
+   CONTEXT MENU
+------------------------ */
+.context-menu {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  user-select: none;
+}
+
+.context-menu button {
+  background: transparent;
+  border: none;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.context-menu button:hover {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+#propContainer {
+  display: flex;
+  gap: 15px;
+}
+
+/* RIGHT column */
+.prop-right {
+  flex: 1;
+}
+
+/* LEFT column */
+.prop-left {
+  flex: 1;
+}
+
+/* Timeline scroll */
+#keyList {
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+/* RIGHT PANEL */
+#panelProperties {
+  width: 360px;            /* rộng hơn để chia 2 cột */
+  background: #ffffffdd;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  display: none;
+}
+
+/* 2 CỘT */
+#propContainer {
+  display: flex;
+  gap: 20px;
+}
+
+.prop-left {
+  flex: 1;
+}
+
+.prop-right {
+  flex: 1;
+}
+
+/* SCROLL TIMELINE */
+#keyList {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* LEFT UI panel */
+#ui {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: #ffffffdd;
+  padding: 12px;
+  border-radius: 10px;
+  width: 180px;
 }

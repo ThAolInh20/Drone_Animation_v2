@@ -15,8 +15,11 @@ const droneList = document.getElementById("droneList");
 //kích thước drone mặc định
 const geoSize = 0.25;
 
-const globalTimeline = new GlobalTimeline(); // 🌟 TIMELINE CHUNG
+let deletedStack = []; // lưu các drone đã xóa tạm: { drone, index }
+const DELETED_STACK_LIMIT = 50;
 
+const globalTimeline = new GlobalTimeline(); // 🌟 TIMELINE CHUNG
+let lastContextPoint = null; // THREE.Vector3 world point của lần right-click
 const camera = new THREE.PerspectiveCamera(
   60,
   window.innerWidth / window.innerHeight,
@@ -112,29 +115,39 @@ function resetDroneColors() {
     }
   });
 }
-function createDrone() {
-  const geo = new THREE.SphereGeometry(geoSize, 32, 32);
+// Tạo drone (mesh + Drone class), optional pos {x,y,z}
+function createDrone(pos = { x: 0, y: 0.5, z: 0 }) {
+  const geo = new THREE.SphereGeometry(0.25, 32, 32); // nếu bạn muốn nhỏ hơn
   const mat = new THREE.MeshStandardMaterial({
     color: Math.random() * 0xffffff,
   });
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(0, 0.5, 0);
+
+  // đặt vị trí theo pos nếu có
+  mesh.position.set(pos.x, pos.y, pos.z);
   scene.add(mesh);
 
   const drone = new Drone({
     id: Date.now(),
     model: mesh,
-    position: { x: 0, y: 0.5, z: 0 },
+    position: { x: pos.x, y: pos.y, z: pos.z },
     rotation: { x: 0, y: 0, z: 0 },
     timeline: [],
   });
+  drone.manualOverride = false;
+
+  // lưu màu gốc để highlight trở về
   drone.originalColor = mat.color.getHex();
-  mesh.userData.originalColor = mesh.material.color.clone();
+
   mesh.userData.drone = drone;
   drones.push(drone);
-  renderDroneList();
+
+  // cập nhật danh sách UI nếu bạn có renderDroneList()
+  if (typeof renderDroneList === "function") renderDroneList();
+
   return drone;
 }
+
 
 // ------------------------------------------------------------
 // HIGHLIGHT RING
@@ -164,7 +177,46 @@ highlightRing = createHighlightRing();
 // ------------------------------------------------------------
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+const contextMenu = document.getElementById("contextMenu");
+const ctxAddBtn = document.getElementById("ctxAddDrone");
+// show custom context menu on right-click (renderer.domElement)
+renderer.domElement.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  
 
+  // show menu at mouse position
+  contextMenu.style.left = `${e.clientX}px`;
+  contextMenu.style.top = `${e.clientY}px`;
+  contextMenu.style.display = "block";
+
+  const ctxDeleteBtn = document.getElementById("ctxDeleteDrone");
+
+  // Ẩn/hiện nút delete tùy có drone được chọn hay không
+  // kiểm tra drone có được chọn chưa
+  const hasDrone = !!selectedDrone;
+
+  document.getElementById("ctxDeleteDrone").style.display = hasDrone ? "block" : "none";
+  document.getElementById("ctxProperties").style.display = hasDrone ? "block" : "none";
+
+  // compute normalized device coords
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  const my = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  // raycast to plane to get world position
+  raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
+  const intersects = raycaster.intersectObject(plane, true);
+
+  if (intersects.length > 0) {
+    lastContextPoint = intersects[0].point.clone();
+  } else {
+    // nếu không trúng plane, ray xuống y=0 (dự phòng)
+    // tạo plane ngang y=0
+    const t = (0 - camera.position.y) / (raycaster.ray.direction.y || 1e-6);
+    const fallback = raycaster.ray.at(t, new THREE.Vector3());
+    lastContextPoint = fallback;
+  }
+});
 window.addEventListener("pointerdown", (event) => {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -228,13 +280,18 @@ axisScene.add(axisHelper);
 // UI HANDLERS
 // ------------------------------------------------------------
 const btnAdd = document.getElementById("btnAddDrone");
-const btnProps = document.getElementById("btnProperties");
+// const btnProps = document.getElementById("btnProperties");
 const btnSet = document.getElementById("btnSettings");
-const btnTime = document.getElementById("btnTimeline");
+// const btnTime = document.getElementById("btnTimeline");
 
 const panelProps = document.getElementById("panelProperties");
 const panelSettings = document.getElementById("panelSettings");
 const panelTimeline = document.getElementById("panelTimeline");
+const xInput = document.getElementById("droneX");
+const yInput = document.getElementById("droneY");
+const zInput = document.getElementById("droneZ");
+const btnApplyToTimeline = document.getElementById("btnApplyToTimeline");
+const btnClearOverride = document.getElementById("btnClearOverride");
 
 const keyEdit = document.getElementById("keyEdit");
 const kfTime = document.getElementById("kfTime");
@@ -242,22 +299,149 @@ const kfX = document.getElementById("kfX");
 const kfY = document.getElementById("kfY");
 const kfZ = document.getElementById("kfZ");
 const btnSaveKey = document.getElementById("btnSaveKey");
+const btnDeleteDrone = document.getElementById("btnDeleteDrone");
+const ctxDeleteBtn = document.getElementById("ctxDeleteDrone");
+const ctxPropertiesBtn = document.getElementById("ctxProperties");
 
 let editingKeyIndex = null;
 
 btnAdd.onclick = () => createDrone();
+ctxAddBtn.addEventListener("click", () => {
+  if (!lastContextPoint) {
+    // fallback: tạo ở trước camera
+    const fallbackPos = { x: camera.position.x, y: 0.5, z: camera.position.z - 2 };
+    createDrone(fallbackPos);
+  } else {
+    // đặt drone cao hơn mặt phẳng chút (v.d. y = planeY + 0.5)
+    const planeY = plane.position.y || 0;
+    const spawnPos = { x: lastContextPoint.x, y: planeY + 0.5, z: lastContextPoint.z };
+    createDrone(spawnPos);
+  }
 
-btnProps.onclick = () =>
-  (panelProps.style.display =
-    panelProps.style.display === "block" ? "none" : "block");
+  // ẩn menu sau khi thêm
+  contextMenu.style.display = "none";
+  lastContextPoint = null;
+});
+btnApplyToTimeline.onclick = () => {
+  if (!selectedDrone) return;
+
+  const arr = selectedDrone.timeline;
+
+  // Nếu timeline trống → bắt đầu từ 0
+  if (arr.length === 0) {
+    arr.push({
+      time: 0,
+      x: selectedDrone.position.x,
+      y: selectedDrone.position.y,
+      z: selectedDrone.position.z
+    });
+  } else {
+    // Lấy key cuối cùng và +1
+    const lastKey = arr[arr.length - 1];
+    const nextTime = lastKey.time + 1;
+
+    arr.push({
+      time: nextTime,
+      x: selectedDrone.position.x,
+      y: selectedDrone.position.y,
+      z: selectedDrone.position.z
+    });
+  }
+
+  // Sort để đảm bảo timeline đúng thứ tự
+  arr.sort((a, b) => a.time - b.time);
+
+  renderKeyList();
+
+  // Tắt manualOverride nếu có bật
+  selectedDrone.manualOverride = false;
+};
+
+btnClearOverride.onclick = () => {
+  if (!selectedDrone) return;
+  selectedDrone.manualOverride = false;
+};
+ctxPropertiesBtn.addEventListener("click", () => {
+  if (!selectedDrone) return;
+
+  // mở panel Properties
+  panelProperties.style.display = "block";
+
+  // load thông tin drone vào UI
+  loadDroneProperties();
+
+  // ẩn menu
+  contextMenu.style.display = "none";
+});
+ctxDeleteBtn.addEventListener("click", () => {
+  if (!selectedDrone) return;
+
+  // Xóa drone khỏi scene
+  scene.remove(selectedDrone.model);
+
+  // Xóa mesh tạm (ko dispose để undo được)
+  deletedStack.push({
+    drone: selectedDrone,
+    index: drones.findIndex(d => d.id === selectedDrone.id)
+  });
+
+  drones = drones.filter(d => d.id !== selectedDrone.id);
+
+  // Ẩn highlight
+  highlightRing.visible = false;
+
+  // Clear UI
+  selectedDrone = null;
+  renderDroneList();
+  renderKeyList();
+  panelProperties.style.display = "none";
+
+  contextMenu.style.display = "none"; // đóng menu
+});
+// btnProps.onclick = () =>
+//   (panelProps.style.display =
+//     panelProps.style.display === "block" ? "none" : "block");
 
 btnSet.onclick = () =>
   (panelSettings.style.display =
     panelSettings.style.display === "block" ? "none" : "block");
 
-btnTime.onclick = () =>
-  (panelTimeline.style.display =
-    panelTimeline.style.display === "block" ? "none" : "block");
+// btnTime.onclick = () =>
+//   (panelTimeline.style.display =
+//     panelTimeline.style.display === "block" ? "none" : "block");
+btnDeleteDrone.onclick = () => {
+  if (!selectedDrone) return alert("Chưa chọn drone!");
+
+  // tìm index hiện tại trong mảng drones
+  const idx = drones.findIndex(d => d.id === selectedDrone.id);
+
+  // remove mesh khỏi scene nhưng KHÔNG dispose -> để có thể khôi phục
+  if (selectedDrone.model) {
+    scene.remove(selectedDrone.model);
+  }
+
+  // ẩn highlight
+  if (highlightRing) highlightRing.visible = false;
+
+  // push vào stack để undo được (lưu cả index cũ)
+  deletedStack.push({ drone: selectedDrone, index: idx });
+
+  // giữ giới hạn stack
+  if (deletedStack.length > DELETED_STACK_LIMIT) deletedStack.shift();
+
+  // xóa khỏi mảng drones
+  if (idx !== -1) drones.splice(idx, 1);
+
+  // clear selection + UI
+  selectedDrone = null;
+  panelProperties.style.display = "none";
+  keyList.innerHTML = "";
+  keyEdit.style.display = "none";
+  renderDroneList();
+
+  // tuỳ chọn: thông báo nhỏ
+  // alert("Đã xóa tạm drone — nhấn Ctrl+Z để khôi phục");
+};
 
 // ------------------------------------------------------------
 // PROPERTIES EDITOR
@@ -268,20 +452,52 @@ const sizeInput = document.getElementById("droneSize");
 function loadDroneProperties() {
   if (!selectedDrone) return;
 
-  colorInput.value =
-    "#" + selectedDrone.model.material.color.getHexString();
+  // color + size
+  colorInput.value = "#" + selectedDrone.model.material.color.getHexString();
   sizeInput.value = selectedDrone.model.scale.x;
 
-  colorInput.oninput = () =>
-    selectedDrone.model.material.color.set(colorInput.value);
-
+  // sự kiện đổi màu & size
+  colorInput.oninput = () => selectedDrone.model.material.color.set(colorInput.value);
   sizeInput.oninput = () =>
-    selectedDrone.model.scale.set(
-      sizeInput.value,
-      sizeInput.value,
-      sizeInput.value
-    );
+    selectedDrone.model.scale.set(sizeInput.value, sizeInput.value, sizeInput.value);
+
+  // --- TỌA ĐỘ ---
+  xInput.value = selectedDrone.position.x.toFixed(2);
+  yInput.value = selectedDrone.position.y.toFixed(2);
+  zInput.value = selectedDrone.position.z.toFixed(2);
+
+  xInput.oninput = () => {
+  if (!selectedDrone) return;
+    const v = parseFloat(xInput.value) || 0;
+    selectedDrone.position.x = v;
+    if (selectedDrone.model) selectedDrone.model.position.x = v;
+    if (highlightRing && highlightRing.visible) highlightRing.position.x = v;
+
+    // bật override để timeline không ghi đè
+    selectedDrone.manualOverride = true;
+  };
+
+  yInput.oninput = () => {
+    if (!selectedDrone) return;
+    const v = parseFloat(yInput.value) || 0;
+    selectedDrone.position.y = v;
+    if (selectedDrone.model) selectedDrone.model.position.y = v;
+    if (highlightRing && highlightRing.visible) highlightRing.position.z = v;
+
+    selectedDrone.manualOverride = true;
+  };
+
+  zInput.oninput = () => {
+    if (!selectedDrone) return;
+    const v = parseFloat(zInput.value) || 0;
+    selectedDrone.position.z = v;
+    if (selectedDrone.model) selectedDrone.model.position.z = v;
+    if (highlightRing && highlightRing.visible) highlightRing.position.z = v;
+
+    selectedDrone.manualOverride = true;
+  };
 }
+
 
 // ------------------------------------------------------------
 // SETTINGS
@@ -306,6 +522,23 @@ function updateGrid() {
   grid.position.y = -0.01;
   scene.add(grid);
 }
+// ẩn khi click trái anywhere (document)
+document.addEventListener("click", (e) => {
+  // nếu click vào context menu button thì không ẩn ngay (handled by button)
+  if (!contextMenu.contains(e.target)) {
+    contextMenu.style.display = "none";
+  }
+});
+
+// ẩn bằng ESC
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") contextMenu.style.display = "none";
+});
+
+// ẩn khi resize hoặc scroll
+window.addEventListener("resize", () => { contextMenu.style.display = "none"; });
+window.addEventListener("scroll", () => { contextMenu.style.display = "none"; });
+
 
 // ------------------------------------------------------------
 // TIMELINE UI
@@ -378,16 +611,29 @@ function animate() {
   globalTimeline.update();
 
   // Tất cả drone apply timeline
-  drones.forEach((d) => d.applyTimeline(globalTimeline.currentTime));
+  drones.forEach((d) => {
+    if (d.manualOverride) {
+      // chỉ cập nhật mesh từ vị trí hiện tại (teleported)
+      d.update();
+    } else {
+      d.applyTimeline(globalTimeline.currentTime);
+    }
+  });
 
   // 🔥 Cập nhật highlight ring theo drone đã chọn
   if (selectedDrone) {
+  // update ring như hiện tại
     highlightRing.visible = true;
     highlightRing.position.set(
       selectedDrone.position.x,
       0.02,
       selectedDrone.position.z
     );
+
+    // chỉ cập nhật input khi người dùng không nhập (document.activeElement)
+    if (document.activeElement !== xInput) xInput.value = selectedDrone.position.x.toFixed(2);
+    if (document.activeElement !== yInput) yInput.value = selectedDrone.position.y.toFixed(2);
+    if (document.activeElement !== zInput) zInput.value = selectedDrone.position.z.toFixed(2);
   }
   // render UI trục theo hướng camera
   axisCamera.position.copy(camera.position).sub(controls.target).normalize();
@@ -401,6 +647,52 @@ function animate() {
   labelZ.lookAt(camera.position);
   renderer.render(scene, camera);
 }
+// Undo Ctrl+Z / Cmd+Z
+window.addEventListener("keydown", (e) => {
+  const isUndo = (e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z");
+  if (!isUndo) return;
+
+  if (deletedStack.length === 0) {
+    // optional: thông báo nhỏ
+    // console.log("Nothing to undo");
+    return;
+  }
+
+  const item = deletedStack.pop();
+  const drone = item.drone;
+  const index = typeof item.index === "number" ? item.index : drones.length;
+
+  // add mesh back to scene
+  if (drone && drone.model) {
+    scene.add(drone.model);
+    // gán lại userData
+    drone.model.userData = drone.model.userData || {};
+    drone.model.userData.drone = drone;
+  }
+
+  // chèn lại vào mảng drones tại vị trí cũ nếu hợp lệ, else push cuối
+  const insertAt = Math.min(Math.max(0, index), drones.length);
+  drones.splice(insertAt, 0, drone);
+
+  // chọn drone vừa khôi phục
+  selectedDrone = drone;
+
+  // highlight & update UI
+  // lưu màu gốc nếu chưa có
+  if (!selectedDrone.originalColor) selectedDrone.originalColor = selectedDrone.model.material.color.getHex();
+  selectedDrone.model.material.color.set(0xffff33); // highlight màu vàng
+  if (highlightRing) {
+    highlightRing.visible = true;
+    highlightRing.position.set(selectedDrone.position.x, 0.02, selectedDrone.position.z);
+  }
+
+  loadDroneProperties();
+  renderKeyList();
+  renderDroneList();
+
+  // optional feedback
+  // console.log("Đã khôi phục 1 drone");
+});
 
 animate();
 
