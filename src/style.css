@@ -1,0 +1,74 @@
+/* ------------------------
+   GLOBAL
+------------------------ */
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: sans-serif;
+}
+
+/* ------------------------
+   LEFT UI PANEL
+------------------------ */
+#ui {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: #ffffffdd;
+  padding: 12px;
+  border-radius: 10px;
+  width: 180px;
+}
+
+.panel {
+  margin-top: 10px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  display: none;
+}
+
+/* Keyframe list */
+.key-item {
+  padding: 4px;
+  background: #eee;
+  margin-top: 4px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+/* ------------------------
+   DRONE LIST PANEL (RIGHT)
+------------------------ */
+#droneListPanel {
+  position: fixed;
+  top: 10px;
+  right: 150px;
+  width: 160px;
+  background: #ffffffdd;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+
+  display: none; /* Mặc định ẩn */
+}
+
+#droneList {
+  max-height: 300px; /* Scroll sau 10 drone */
+  overflow-y: auto;
+}
+
+.drone-item {
+  padding: 6px;
+  margin-bottom: 4px;
+  background: #eee;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.drone-item.active {
+  background: #ffeb3b;
+  font-weight: bold;
+}
